@@ -1,0 +1,49 @@
+
+#ifndef DETECTOR_H 
+#define DETECTOR_H 
+ 
+#include <opencv2/opencv.hpp>
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+
+#define HISTOGRAM_SKIN_DIR "histSkin"
+#define HISTOGRAM_NON_SKIN_DIR "histNonSkin"
+#define SEPERATOR "/"
+#define IMAGE_EXT ".jpg"
+#define MAX_VALUE  256
+
+class Detector 
+{
+    public:
+        Detector(int s, char *file);
+        void detect();
+        void save();
+        void massDetect();
+//        virtual ~Detector();
+	private:
+        int scale;
+//        char *imageName;
+        double possibilityOfSkin;
+        double possibilityOfNonSkin;
+        int totalPixelSkin;
+        int totalPixelSkinBase;
+        int totalPixelNonSkin;
+        int totalPixelNonSkinBase;
+        cv::Mat histogramSkin; 
+        cv::Mat histogramNonSkin; 
+        cv::Mat image;
+        double histoS[MAX_VALUE][MAX_VALUE];
+        double histoNS[MAX_VALUE][MAX_VALUE];
+        void getPosibility();
+        void getHistogramSkin();
+        void getHistogramNonSkin();
+
+        void getHistogram(char *file, int isSkinExample);
+        std::vector<std::string> getExamples(const char *dir);                
+        int isImageFile(char *f);
+        bool histogramTest(char *file);
+        void writeHistogram();
+        void readHistogram();
+};
+#endif
+
