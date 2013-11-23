@@ -22,7 +22,7 @@ class Detector
         char * videoFile;
         int numberOfHistoryFrame = 0;
         const int minNumberOfHistoryFrame = 2;
-        const int threshold = 20;
+        const int threshold = 30;
         const int sampleRate = 20;
         cv::VideoCapture capture;
         cv::Mat background;
