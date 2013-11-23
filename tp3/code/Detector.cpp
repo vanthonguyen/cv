@@ -31,13 +31,7 @@
 #include <thread>
 
 #include "Detector.h"
-
-//float *histogram;
-void process(std::vector<cv::Mat> h, &cv::Mat bg){
-
-}
-
-void Detector::insertionSort(uchar arr[], int length){
+void insertionSort(uchar arr[], int length){
     int i, j ,tmp;                                                                     
     for (i = 1; i < length; i++)  {  
         j = i;  
@@ -50,6 +44,27 @@ void Detector::insertionSort(uchar arr[], int length){
         }
     }
 }
+
+//float *histogram;
+void processHistory(std::vector<cv::Mat> history, cv::Mat &background){
+    int rows = history.front().size().height;
+    int cols = history.front().size().width;
+    int numberOfHistoryFrame = history.size();
+    //background = history[0].clone();
+    cv::Mat b = cv::Mat::zeros(rows, cols, CV_8U);
+    for(int row = 0; row < rows; row++ ){
+        for(int col = 0; col < cols; col++){
+            uchar pixels[numberOfHistoryFrame];
+            for ( int k = 0; k < numberOfHistoryFrame; k++ ){
+                pixels[k] = history[k].at<uchar>(row, col);
+            }
+            insertionSort(pixels, numberOfHistoryFrame);
+            b.at<uchar>(row, col) = pixels[numberOfHistoryFrame/2 + 1];       
+        }
+    }
+    background = b.clone();
+}
+
 
 int main(int argc, char ** argv){
     //devoir utiliser parametre
@@ -82,8 +97,8 @@ void Detector::getBackground(){
                 }else{
 //                    history.pop_front();
 //                    history.push_back(frame);
-                    std::thread t(&Detector::test, this);
-                    t.join();
+                    std::thread t(processHistory, history, std::ref(background)); 
+                    t.detach();
                     //process();
                     history.clear();
                     numberOfHistoryFrame = 0;
@@ -150,6 +165,24 @@ void Detector::showVideo(){
     }
 }
 
+void Detector::process(std::vector<cv::Mat> hist, cv::Mat &bg){
+    int rows = hist.front().size().height;
+    int cols = hist.front().size().width;
+    int numberOfHistoryFrame = hist.size();
+    //background = history[0].clone();
+    cv::Mat b = cv::Mat::zeros(rows, cols, CV_8U);
+    for(int row = 0; row < rows; row++ ){
+        for(int col = 0; col < cols; col++){
+            uchar pixels[numberOfHistoryFrame];
+            for ( int k = 0; k < numberOfHistoryFrame; k++ ){
+                pixels[k] = hist[k].at<uchar>(row, col);
+            }
+            insertionSort(pixels, numberOfHistoryFrame);
+            b.at<uchar>(row, col) = pixels[numberOfHistoryFrame/2 + 1];       
+        }
+    }
+    bg = b.clone();
+}
 
 void Detector::process(){
     int rows = history.front().size().height;
