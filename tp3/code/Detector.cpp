@@ -79,7 +79,6 @@ void processHistory(std::list<cv::Mat> history, std::list<cv::Mat> &backgroundHi
     }
     //backgroundHistory.push_back(b);
     int numberOfBackground = backgroundHistory.size();
-std::cout<<numberOfBackground<<std::endl;
     if(numberOfBackground == 10){
         cv::Mat newBg = cv::Mat::zeros(rows, cols, CV_8U);
         for(int row = 0; row < rows; row++ ){
@@ -98,6 +97,8 @@ std::cout<<numberOfBackground<<std::endl;
     }else{
         background = b.clone();
     }
+            cv::erode(background,background,cv::Mat());
+            cv::dilate(background,background,cv::Mat());
 }
 
 
