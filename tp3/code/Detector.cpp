@@ -23,14 +23,19 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include <stdlib.h>
 #include <unistd.h>
+#include <list>
 #include <vector>
 #include <sys/types.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <math.h>
 #include <thread>
+#include <mutex>
 
 #include "Detector.h"
+
+std::mutex mt;
+
 void insertionSort(uchar arr[], int length){
     int i, j ,tmp;                                                                     
     for (i = 1; i < length; i++)  {  
@@ -46,7 +51,8 @@ void insertionSort(uchar arr[], int length){
 }
 
 //float *histogram;
-void processHistory(std::vector<cv::Mat> history, cv::Mat &background){
+void processHistory(std::list<cv::Mat> history, std::list<cv::Mat> &backgroundHistory, cv::Mat &background){
+    std::lock_guard<std::mutex> guard(mt);
     int rows = history.front().size().height;
     int cols = history.front().size().width;
     int numberOfHistoryFrame = history.size();
@@ -55,14 +61,43 @@ void processHistory(std::vector<cv::Mat> history, cv::Mat &background){
     for(int row = 0; row < rows; row++ ){
         for(int col = 0; col < cols; col++){
             uchar pixels[numberOfHistoryFrame];
-            for ( int k = 0; k < numberOfHistoryFrame; k++ ){
-                pixels[k] = history[k].at<uchar>(row, col);
+            int k = 0;
+            for ( std::list<cv::Mat>::iterator it = history.begin(); it != history.end(); ++it){
+                pixels[k] = (*it).at<uchar>(row, col);
+                k++;
             }
             insertionSort(pixels, numberOfHistoryFrame);
             b.at<uchar>(row, col) = pixels[numberOfHistoryFrame/2 + 1];       
         }
     }
-    background = b.clone();
+    if(backgroundHistory.size() == maxNumberOfBackground){
+        backgroundHistory.pop_front();
+    }
+    //only add the stable background
+    if(numberOfHistoryFrame == maxNumberOfHistoryFrame){
+        backgroundHistory.push_back(b);
+    }
+    //backgroundHistory.push_back(b);
+    int numberOfBackground = backgroundHistory.size();
+std::cout<<numberOfBackground<<std::endl;
+    if(numberOfBackground == 10){
+        cv::Mat newBg = cv::Mat::zeros(rows, cols, CV_8U);
+        for(int row = 0; row < rows; row++ ){
+            for(int col = 0; col < cols; col++){
+                uchar pixels[numberOfBackground];
+                int k = 0;
+                for ( std::list<cv::Mat>::const_iterator it = backgroundHistory.begin(), end = backgroundHistory.end(); it != end; ++it){
+                    pixels[k] = (*it).at<uchar>(row, col);
+                    k++;
+                }
+                insertionSort(pixels, numberOfBackground);
+                newBg.at<uchar>(row, col) = pixels[numberOfBackground/2 + 1];       
+            }
+        }
+        background = newBg.clone();
+    }else{
+        background = b.clone();
+    }
 }
 
 
@@ -95,22 +130,21 @@ void Detector::getBackground(){
                     history.push_back(gray);
                     numberOfHistoryFrame++;
                 }else{
-//                    history.pop_front();
-//                    history.push_back(frame);
-                    std::thread t(processHistory, history, std::ref(background)); 
-                    t.detach();
-                    //process();
-                    history.clear();
-                    numberOfHistoryFrame = 0;
+                    history.pop_front();
+                    history.push_back(gray);
+                    //std::thread t(processHistory, history, std::ref(background)); 
+                    //t.detach();
+            //        history.clear();
+            //       numberOfHistoryFrame = 0;
                 }
             }
-            //if(numberOfHistoryFrame > minNumberOfHistoryFrame && rnd == 0){
-            //    process();
-            //}
+            if(numberOfHistoryFrame > minNumberOfHistoryFrame && rnd == 0){
+                std::thread t(processHistory, history, std::ref(backgroundHistory), std::ref(background)); 
+                t.detach();
+            }
             foreground = subtract(gray, background);
             cv::erode(foreground,foreground,cv::Mat());
             cv::dilate(foreground,foreground,cv::Mat());
-
 
             cv::imshow("Origine",frame);
             cv::imshow("Foreground",foreground);
@@ -164,47 +198,6 @@ void Detector::showVideo(){
         }
     }
 }
-
-void Detector::process(std::vector<cv::Mat> hist, cv::Mat &bg){
-    int rows = hist.front().size().height;
-    int cols = hist.front().size().width;
-    int numberOfHistoryFrame = hist.size();
-    //background = history[0].clone();
-    cv::Mat b = cv::Mat::zeros(rows, cols, CV_8U);
-    for(int row = 0; row < rows; row++ ){
-        for(int col = 0; col < cols; col++){
-            uchar pixels[numberOfHistoryFrame];
-            for ( int k = 0; k < numberOfHistoryFrame; k++ ){
-                pixels[k] = hist[k].at<uchar>(row, col);
-            }
-            insertionSort(pixels, numberOfHistoryFrame);
-            b.at<uchar>(row, col) = pixels[numberOfHistoryFrame/2 + 1];       
-        }
-    }
-    bg = b.clone();
-}
-
-void Detector::process(){
-    int rows = history.front().size().height;
-    int cols = history.front().size().width;
-    //background = history[0].clone();
-    background = cv::Mat::zeros(rows, cols, CV_8U);
-    for(int row = 0; row < rows; row++ ){
-        for(int col = 0; col < cols; col++){
-            uchar pixels[numberOfHistoryFrame];
-            //int k = 0;
-            //for ( std::list<cv::Mat>::iterator it = history.begin(); it != history.end(); ++it){
-            for ( int k = 0; k < numberOfHistoryFrame; k++ ){
-                //pixels[k] = cv::Mat(*it).at<uchar>(row, col);
-                pixels[k] = history[k].at<uchar>(row, col);
-                //k++;
-            }
-            insertionSort(pixels, numberOfHistoryFrame);
-            background.at<uchar>(row, col) = pixels[numberOfHistoryFrame/2 + 1];    
-        }
-    }
-}
-
 
 cv::Mat Detector::subtract(cv::Mat m1, cv::Mat m2){
     //check size, channels
