@@ -29,6 +29,7 @@ class Detector
         std::vector<cv::Mat> history;
         cv::Mat subtract(cv::Mat m1, cv::Mat m2);
         void process();
+        void process(std::vector<cv::Mat> hist, cv::Mat &bg);
         void test(){
             std::cout<<"Hello I'm a thread";
         }
