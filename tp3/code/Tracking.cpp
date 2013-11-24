@@ -49,7 +49,7 @@ Tracking::Tracking(char *file): videoFile(file), capture(videoFile){
     filter.statePre.at<float>(1) = 0;
     filter.statePre.at<float>(2) = 0;
     filter.statePre.at<float>(3) = 0;
-    randn(filter.statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
+//    randn(filter.statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
 }
 
 void Tracking::begin(){
@@ -58,10 +58,23 @@ void Tracking::begin(){
     }
     std::vector<cv::Vec4i> hierarchy;
     while((char)cv::waitKey(30) != 'q' && capture.grab()){
-        capture >> frame;
+        capture.retrieve(frame);
+        cv::Mat gray;
+        cv::cvtColor(frame, gray, CV_BGR2GRAY); 
+        if(!initialised){
+            tracker = cv::Mat::zeros(frame.size(), CV_8UC3); 
+            initialised = true;
+        }
+        int rnd = rand()%sampleRate;
+        if(rnd == 0){
+            background = backgroundExtractor.getBackground(gray);
+        }
         cv::split(frame, channels);
-        cv::subtract(channels[2], channels[1], channels[2]); 
-        cv::threshold(channels[2], thresholdFrame, 50, 255, CV_THRESH_BINARY);
+        //cv::subtract(channels[2], channels[1], channels[2]); 
+        thresholdFrame = backgroundExtractor.subtract(gray, background );
+        cv::threshold(thresholdFrame, thresholdFrame, 50, 255, CV_THRESH_BINARY);
+        cv::erode(thresholdFrame,thresholdFrame,cv::Mat());                
+        cv::dilate(thresholdFrame,thresholdFrame,cv::Mat());
         cv::medianBlur(thresholdFrame, thresholdFrame, 5);
         cv::findContours(thresholdFrame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
         cv::Mat drawing = cv::Mat::zeros(thresholdFrame.size(), CV_8UC1);
@@ -70,6 +83,8 @@ void Tracking::begin(){
             if(cv::contourArea(contours[i]) > 100){
                 std::cout<<cv::contourArea(contours[i])<<std::endl;
                 cv::drawContours(drawing, contours, i, cv::Scalar::all(255), CV_FILLED, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
+            }else{
+                contours.erase(contours.begin() + i);
             }
         }
         thresholdFrame = drawing;
@@ -79,6 +94,8 @@ void Tracking::begin(){
             if(cv::contourArea(contours[i]) > 100){
                 std::cout<<cv::contourArea(contours[i])<<std::endl;
                 cv::drawContours(drawing, contours, i, cv::Scalar::all(255), CV_FILLED, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
+            }else{
+                contours.erase(contours.begin() + i);
             }
         }
         thresholdFrame = drawing;
@@ -99,8 +116,9 @@ void Tracking::begin(){
         cv::Mat prediction = filter.predict();
         cv::Point predictPt(prediction.at<float>(0), prediction.at<float>(1));
 
-        for(size_t i = 0; i < mc.size(); i++)
-        {
+        //draw prediction
+        drawCross( tracker, predictPt, cv::Scalar(255,0,0), 3 );
+        for(size_t i = 0; i < mc.size(); i++){
             drawCross(frame, mc[i], cv::Scalar(255, 0, 0), 5);
             measurement.at<float>(0) = mc[i].x;
             measurement.at<float>(1) = mc[i].y;
@@ -109,10 +127,15 @@ void Tracking::begin(){
 
         cv::Point measurementPt(measurement.at<float>(0),measurement.at<float>(1));
 
+        //draw measurement 
+        drawCross( tracker, measurementPt, cv::Scalar(0,255,0), 3 );
+
         cv::Mat estimated = filter.correct(measurement);
         cv::Point statePt(estimated.at<float>(0),estimated.at<float>(1));
 
         drawCross(frame, statePt, cv::Scalar(255, 255, 255), 5);
+        //draw correction 
+        drawCross( tracker, statePt, cv::Scalar(0,0,255), 3 );
 
         std::vector<std::vector<cv::Point>> contoursPoly( contours.size() );
         std::vector<cv::Rect> boundRect( contours.size() );
@@ -126,7 +149,7 @@ void Tracking::begin(){
         }
 
         cv::imshow("Video", frame);
-        cv::imshow("Red", channels[2]);
+        cv::imshow("Tracker", tracker);
         cv::imshow("Binary", thresholdFrame);
     }
 }

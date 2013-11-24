@@ -6,6 +6,8 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
+#include "BackgroundExtractor.h"
+
 class Tracking{
     public:
         /**
@@ -20,13 +22,16 @@ class Tracking{
         cv::Mat measurement = cv::Mat::zeros(2, 1, CV_32F);
         cv::Mat processNoise = cv::Mat(4, 1, CV_32F);
         cv::Mat state = cv::Mat(4, 1, CV_32F);
-        cv::Mat noise;
+        cv::Mat background;
+        cv::Mat foreground;
+        cv::Mat tracker;
+        bool initialised = false;
         cv::Mat frame;
         cv::Mat thresholdFrame;
         std::vector<cv::Mat> channels;
         std::vector<std::vector<cv::Point> > contours; 
         cv::VideoCapture capture;
-
+        BackgroundExtractor backgroundExtractor;
         cv::Mat video;
 };
 #endif

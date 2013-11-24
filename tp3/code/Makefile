@@ -3,15 +3,15 @@ LDFLAGS = `pkg-config --libs opencv` -pthread
 LIBS = `pkg-config --libs opencv` -lm
 CC = g++
 OBJ = Detector.o
-
+OBJ2 = Tracking.o BackgroundExtractor.o
 %.o: %.cpp 
 		$(CC) -c -o $@ $< $(CFLAGS)
 
 detector: $(OBJ) 
 	$(CC) -o $@ $^ $(LDFLAGS)
-evaluator:
-	$(CC) -o evaluator Evaluator.cpp $(CFLAGS) $(LDFLAGS)
-All:detector
+tracking:$(OBJ2)
+	$(CC) -o $@ $^ $(LDFLAGS)
+All:tracking
 
 clean:
-	rm -f *.o detector
+	rm -f *.o detector tracking
