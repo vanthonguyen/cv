@@ -16,11 +16,6 @@
  * =====================================================================================
  */
 
-#include <vector>
-#include <opencv2/opencv.hpp>
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-
 #include "Tracking.h"
 
 // plot points
@@ -45,11 +40,14 @@ Tracking::Tracking(char *file): videoFile(file), capture(videoFile){
     cv::setIdentity(filter.measurementNoiseCov, cv::Scalar::all(1e-1));
     cv::setIdentity(filter.errorCovPost, cv::Scalar::all(1));
 
-    filter.statePre.at<float>(0) = 0;
-    filter.statePre.at<float>(1) = 0;
-    filter.statePre.at<float>(2) = 0;
-    filter.statePre.at<float>(3) = 0;
+//    filter.statePre.at<float>(0) = 90*3;
+//    filter.statePre.at<float>(1) = 284;
+//    filter.statePre.at<float>(2) = 0;
+//    filter.statePre.at<float>(3) = 0;
 //    randn(filter.statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
+    filter.statePost = *(cv::Mat_<float>(4, 1) << 270,284,0,0);
+    measurement.at<float>(0) = 270;
+    measurement.at<float>(1) = 283;
 }
 
 void Tracking::begin(){
@@ -63,41 +61,42 @@ void Tracking::begin(){
         cv::cvtColor(frame, gray, CV_BGR2GRAY); 
         if(!initialised){
             tracker = cv::Mat::zeros(frame.size(), CV_8UC3); 
-            initialised = true;
         }
         int rnd = rand()%sampleRate;
         if(rnd == 0){
             background = backgroundExtractor.getBackground(gray);
         }
-        cv::split(frame, channels);
+        //cv::split(frame, channels);
         //cv::subtract(channels[2], channels[1], channels[2]); 
         thresholdFrame = backgroundExtractor.subtract(gray, background );
-        cv::threshold(thresholdFrame, thresholdFrame, 50, 255, CV_THRESH_BINARY);
+        cv::threshold(thresholdFrame, thresholdFrame, 20, 255, CV_THRESH_BINARY);
+        //cv::medianBlur(thresholdFrame, thresholdFrame, 5);
         cv::erode(thresholdFrame,thresholdFrame,cv::Mat());                
         cv::dilate(thresholdFrame,thresholdFrame,cv::Mat());
-        cv::medianBlur(thresholdFrame, thresholdFrame, 5);
+        cv::dilate(thresholdFrame,thresholdFrame,cv::Mat());
         cv::findContours(thresholdFrame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
         cv::Mat drawing = cv::Mat::zeros(thresholdFrame.size(), CV_8UC1);
 
         for(size_t i = 0; i < contours.size(); i++){
-            if(cv::contourArea(contours[i]) > 100){
-                std::cout<<cv::contourArea(contours[i])<<std::endl;
+            if(cv::contourArea(contours[i]) > 400){
+//std::cout<<cv::contourArea(contours[i])<<std::endl;
                 cv::drawContours(drawing, contours, i, cv::Scalar::all(255), CV_FILLED, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
             }else{
                 contours.erase(contours.begin() + i);
             }
         }
+
         thresholdFrame = drawing;
         drawing = cv::Mat::zeros(thresholdFrame.size(), CV_8UC1);
 
         for(size_t i = 0; i < contours.size(); i++){
-            if(cv::contourArea(contours[i]) > 100){
-                std::cout<<cv::contourArea(contours[i])<<std::endl;
+            if(cv::contourArea(contours[i]) > 400){
                 cv::drawContours(drawing, contours, i, cv::Scalar::all(255), CV_FILLED, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
             }else{
                 contours.erase(contours.begin() + i);
             }
         }
+
         thresholdFrame = drawing;
 
         /* fix me: get moment here */
@@ -112,16 +111,33 @@ void Tracking::begin(){
         for( size_t i = 0; i < contours.size(); i++ ){ 
             mc[i] = cv::Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); 
         }
+        
 
+        if(!initialised){
+
+        }
         cv::Mat prediction = filter.predict();
         cv::Point predictPt(prediction.at<float>(0), prediction.at<float>(1));
-
+//std::cout<<predictPt<<std::endl;
         //draw prediction
+        std::vector<std::vector<cv::Point>> contoursPoly( contours.size() );
+        std::vector<cv::Rect> boundRect( contours.size() );
+        for( size_t i = 0; i < contours.size(); i++ ){ 
+            cv::approxPolyDP( cv::Mat(contours[i]), contoursPoly[i], 3, true );
+            boundRect[i] = cv::boundingRect( cv::Mat(contoursPoly[i]) );
+        }
+
+        for( size_t i = 0; i < contours.size(); i++ ){
+            cv::rectangle( frame, boundRect[i].tl(), boundRect[i].br(), cv::Scalar(0, 255, 0), 2, 8, 0 );
+        }
+
         drawCross( tracker, predictPt, cv::Scalar(255,0,0), 3 );
         for(size_t i = 0; i < mc.size(); i++){
-            drawCross(frame, mc[i], cv::Scalar(255, 0, 0), 5);
-            measurement.at<float>(0) = mc[i].x;
-            measurement.at<float>(1) = mc[i].y;
+            if(boundRect[i].width * boundRect[i].height > 1000 && boundRect[i].height / boundRect[i].width > 2){
+                drawCross(frame, mc[i], cv::Scalar(255, 0, 0), 5);
+                measurement.at<float>(0) = mc[i].x;
+                measurement.at<float>(1) = mc[i].y;
+            }
         }
 
 
@@ -137,6 +153,7 @@ void Tracking::begin(){
         //draw correction 
         drawCross( tracker, statePt, cv::Scalar(0,0,255), 3 );
 
+/*  
         std::vector<std::vector<cv::Point>> contoursPoly( contours.size() );
         std::vector<cv::Rect> boundRect( contours.size() );
         for( size_t i = 0; i < contours.size(); i++ ){ 
@@ -147,7 +164,7 @@ void Tracking::begin(){
         for( size_t i = 0; i < contours.size(); i++ ){
             cv::rectangle( frame, boundRect[i].tl(), boundRect[i].br(), cv::Scalar(0, 255, 0), 2, 8, 0 );
         }
-
+*/
         cv::imshow("Video", frame);
         cv::imshow("Tracker", tracker);
         cv::imshow("Binary", thresholdFrame);
