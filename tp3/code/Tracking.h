@@ -7,12 +7,14 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/nonfree/features2d.hpp"
 
-#include "BackgroundExtractor.h"
+#include "MovingObject.h"
 /**
  * Tracking objects
  * using keypoints to detect objects
  * and KalmanFilter to tracking objects's velocity and position 
  */
+
+const double minDistance = 0.90;
 
 class Tracking{
     public:
@@ -24,16 +26,10 @@ class Tracking{
         void begin();
     private:
         char *videoFile;
-        std::vector<cv::KalmanFilter> filters;
-        cv::KalmanFilter filter;
-        cv::Mat measurement = cv::Mat::zeros(2, 1, CV_32F);
-        cv::Mat processNoise = cv::Mat(4, 1, CV_32F);
-        cv::Mat state = cv::Mat(4, 1, CV_32F);
         cv::Mat background;
         cv::Mat foreground;
         cv::Mat tracker;
-        
-        bool initialised = false;
+        std::vector<MovingObject> objects;
         cv::Mat frame;
         cv::Mat thresholdFrame;
         std::vector<cv::KeyPoint> keyPoints;
@@ -42,10 +38,10 @@ class Tracking{
         cv::BackgroundSubtractorMOG2 backgrounSubtructor;
         cv::SurfDescriptorExtractor extractor;
         std::vector<cv::Mat> descriptors;    
-        cv::KeyPoint keyPoint;
-        cv::Mat descriptor; //track this descriptor
         cv::BFMatcher matcher;
-        cv::Mat video;
+        
+        bool initialised = false;
+
 };
 #endif
 

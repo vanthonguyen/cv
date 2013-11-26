@@ -97,8 +97,6 @@ void processHistory(std::list<cv::Mat> history, std::list<cv::Mat> &backgroundHi
     }else{
         background = b.clone();
     }
-            cv::erode(background,background,cv::Mat());
-            cv::dilate(background,background,cv::Mat());
 }
 
 
@@ -145,6 +143,7 @@ void Detector::getBackground(){
             }
             foreground = subtract(gray, background);
             cv::erode(foreground,foreground,cv::Mat());
+            cv::dilate(foreground,foreground,cv::Mat());
             cv::dilate(foreground,foreground,cv::Mat());
 
             cv::imshow("Origine",frame);
