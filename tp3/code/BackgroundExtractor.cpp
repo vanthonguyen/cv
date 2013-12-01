@@ -132,7 +132,8 @@ cv::Mat BackgroundExtractor::subtract(cv::Mat m1, cv::Mat m2){
     for(int row = 0; row < rows; row++ ){
         for(int col = 0; col < cols; col++){
             uchar val = abs(m1.at<uchar> (row, col) - m2.at<uchar> (row, col));
-            result.at<uchar> (row, col) = (val < threshold) ? 0 : val;
+            result.at<uchar> (row, col) = (val < threshold) ? 0 : 255;
+            //result.at<uchar> (row, col) = val;
         }
     }
     return result;

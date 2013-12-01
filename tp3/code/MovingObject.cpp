@@ -22,8 +22,11 @@
 #define debug(text)\
     std::cout<<text<<std::endl;
 
-MovingObject::MovingObject(cv::KeyPoint initialKeyPoint, cv::Mat initialDescriptor): 
-    keyPoint(initialKeyPoint), descriptor(initialDescriptor){
+MovingObject::MovingObject(cv::Point initialPoint, cv::Mat initialDescriptor): 
+    center(initialPoint), descriptor(initialDescriptor){
+    /**
+     * 4 dynamic params: x, y, dx, dy, 2 measurement
+     */
     filter.init(4, 2, 0);
     //filter.transitionMatrix = *(cv::Mat_<float>(2, 2) << 1, 1, 0, 1);
     filter.transitionMatrix = *(cv::Mat_<float>(4, 4) << 1,0,1,0,   0,1,0,1,  0,0,1,0,  0,0,0,1);
@@ -33,24 +36,62 @@ MovingObject::MovingObject(cv::KeyPoint initialKeyPoint, cv::Mat initialDescript
     cv::setIdentity(filter.measurementNoiseCov, cv::Scalar::all(1e-1));
     cv::setIdentity(filter.errorCovPost, cv::Scalar::all(1));
 
-    cv::Point initialPosition = keyPoint.pt; 
 //    randn(filter.statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
-    filter.statePost = *(cv::Mat_<float>(4, 1) << initialPosition.x,initialPosition.y,0,0);
+    filter.statePost = *(cv::Mat_<float>(4, 1) << center.x,center.y,0,0);
+    cv::randn( estimated, cv::Scalar::all(0), cv::Scalar::all(0.1) );
     //int c = rng.uniform(100, 255);
     int r = rand()%256;
     int g = rand()%256;
     int b = rand()%256;
-    predictionColor = cv::Scalar(b, g, r);
-    measurementColor = cv::Scalar(b, g, r);
+    //predictionColor = cv::Scalar(b, g, r);
+    //measurementColor = cv::Scalar(b, g, r);
     estimatedColor= cv::Scalar(b, g, r);
+    prevMeasurement.x = -1.0;
+    prevMeasurement.y = -1.0;
+    measurement(0) = -1.0;
+    measurement(1) = -1.0;
+
 //    measurement.at<float>(0) = initialPosition.x;
 //    measurement.at<float>(1) = initialPosition.y;
 }
 
-void MovingObject::process(cv::Point measurementPosition){
+void MovingObject::process(cv::Point2f measurementPosition){
     setPrediction(filter.predict());
-    setMeasurement(measurementPosition);
-    setEstimated(filter.correct(measurement));
+    //first time
+    if(measurement(0) == -1.0 && measurement(1) == -1.0){
+        setMeasurement(measurementPosition);
+        setEstimated(filter.correct(measurement));
+        found++;        
+    }else 
+    if(abs(measurement(0) - measurementPosition.x) <= noMeasurement*maxVelocity &&
+       abs(measurement(1) - measurementPosition.y) <= noMeasurement*maxVelocity){
+        setMeasurement(measurementPosition);
+        setEstimated(filter.correct(measurement));
+        found++;        
+        noMeasurement = 0;
+    }else{
+        updateWithoutCorrectrion();
+    }
+    
+    //setMeasurement(measurementPosition);
+    //setEstimated(filter.correct(measurement));
+/*      cv::randn( measurement, cv::Scalar::all(0), cv::Scalar::all(filter.measurementNoiseCov.at<float>(0)));
+    //cv::Mat measurementPos = cv::Mat(4, 1, CV_32F);
+    cv::Mat_<float> measurementPos(4,1);
+    measurementPos(0) = measurementPosition.x;
+    measurementPos(1) = measurementPosition.y;
+    measurementPos(2) = 0;
+    measurementPos(3) = 0;
+
+    measurement += filter.measurementMatrix*measurementPos;
+*/
+//    setEstimated(filter.correct(measurement));
+//    cv::randn( processNoise, cv::Scalar(0), cv::Scalar::all(sqrt(filter.processNoiseCov.at<float>(0, 0))));
+//    estimated = filter.transitionMatrix*estimated + processNoise;
+}
+void MovingObject::updateWithoutCorrectrion(){
+    setPrediction(filter.predict());
+    noMeasurement++;
 }
 
 void MovingObject::draw(cv::Mat &img){
@@ -70,7 +111,7 @@ cv::Point MovingObject::getPrediction(){
     return predictPt; 
 }
 cv::Point MovingObject::getMeasurement(){
-    cv::Point measurementPt(measurement.at<float>(0),measurement.at<float>(1)); 
+    cv::Point measurementPt(measurement(0),measurement(1)); 
     return measurementPt; 
 }
 
@@ -85,8 +126,8 @@ void MovingObject::setPrediction(cv::Mat pred){
     prediction = pred;
 }
 void MovingObject::setMeasurement(cv::Point meas){
-    prevMeasurement.x = measurement.at<float>(0);
-    prevMeasurement.y = measurement.at<float>(1);
-    measurement.at<float> (0) = meas.x;
-    measurement.at<float> (1) = meas.y;
+    prevMeasurement.x = measurement(0);
+    prevMeasurement.y = measurement(1);
+    measurement (0) = meas.x;
+    measurement (1) = meas.y;
 }

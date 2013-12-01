@@ -7,7 +7,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
-const unsigned int maxNumberOfBackground = 40;
+const unsigned int maxNumberOfBackground = 90;
 const unsigned int maxNumberOfHistoryFrame = 50;
 const unsigned int threshold = 30;
 const int sampleRate = 10;

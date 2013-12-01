@@ -31,11 +31,22 @@
 #define debug(text)\
     std::cout<<text<<std::endl;
 
+cv::Mat imageMultiply(cv::Mat img1, cv::Mat img2){
+    cv::Mat r = cv::Mat::zeros(img1.size(), img1.type());
+    for(int row = 0; row < img1.size().height; row++){
+        for(int col = 0; col < img1.size().width; col++){
+            r.at<uchar>(row,col) = img1.at<uchar>(row,col)*img2.at<uchar>(row,col);
+        }
+    }
+    return r;
+}
+
 int main(int argc, char ** argv){
     Tracking tracking(argv[1]);        
     tracking.begin();
 }
 Tracking::Tracking(char *file): videoFile(file), capture(videoFile){
+    
 }
 
 void Tracking::begin(){
@@ -47,30 +58,74 @@ void Tracking::begin(){
     params.minThreshold = 40;
     params.maxThreshold = 60;
     params.thresholdStep = 5;
-    params.minArea = 300; 
+    params.minArea = 200; 
     params.minConvexity = 0.3;
     params.minInertiaRatio = 0.01;
     params.maxArea = 8000;
-    params.maxConvexity = 10;
+    params.maxConvexity = 16;
     params.filterByColor = false;
     params.filterByCircularity = false;
    
-    cv::SimpleBlobDetector blobDetector(params);
-    blobDetector.create("SimpleBlob");
+    //cv::SimpleBlobDetector blobDetector(params);
+    //blobDetector.create("SimpleBlob");
     std::vector<cv::KeyPoint> newKeyPoints;
-
+    int nf = 0;
     while((char)cv::waitKey(30) != 'q' && capture.grab()){
         capture.retrieve(frame);
-        backgrounSubtructor.operator ()(frame, foreground);
-        backgrounSubtructor.getBackgroundImage(background);
-        cv::erode(foreground, foreground, cv::Mat());
-        cv::dilate(foreground, foreground, cv::Mat());
-        cv::dilate(foreground, foreground, cv::Mat());
-        cv::erode(foreground, foreground, cv::Mat());
-        blobDetector.detect(foreground, newKeyPoints, cv::Mat());
+        cv::Mat gray;
+        cv::cvtColor(frame, gray, CV_BGR2GRAY);
+        if(background.size().width == 0){
+            background = gray.clone();
+        }
+        //cv::medianBlur(frame, frameBlur, 3);
+        //cv::GaussianBlur(gray, gray, cv::Size(5,5), 0, 0);
+//        backgrounSubtructor.operator ()(frameBlur, foreground);
+        //backgrounSubtructor.getBackgroundImage(background);
+        int rnd = rand()%sampleRate;
+        if(rnd == 0){
+            background = backgroundSubtructor.getBackground(gray);
+        }
+        //skip 20 first frames
+        if(nf < 20){
+            nf++;
+            continue;
+        }
 
-        cv::findContours(foreground, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-        cv::drawContours(frame, contours, -1, cv::Scalar(0,0,255), 2);
+        foreground = backgroundSubtructor.subtract(gray, background );
+        //cv::threshold(foreground, foreground, 20, 255,  CV_THRESH_BINARY);
+        cv::erode(foreground, foreground, cv::Mat());
+        cv::dilate(foreground, foreground, cv::Mat());
+        cv::dilate(foreground, foreground, cv::Mat());
+        cv::erode(foreground, foreground, cv::Mat());
+        //blobDetector.detect(foreground, newKeyPoints, cv::Mat());
+
+
+        cv::imshow("xx", background);
+
+        std::vector<std::vector<cv::Point> > newContours;
+        cv::findContours(foreground, newContours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+        std::vector<cv::Mat> movingRegions;
+        //cv::Mat drawing = cv::Mat::zeros(frame.size(), CV_8UC1);
+        std::vector<std::vector<cv::Point> > contours;
+        for(size_t i = 0; i < newContours.size(); i++){
+            if(cv::contourArea(newContours[i]) > minContourArea){
+                cv::Mat region = cv::Mat::zeros(frame.size(), CV_8UC1);
+                cv::drawContours(region, newContours, i, cv::Scalar::all(1), CV_FILLED, 8, std::vector<cv::Vec4i>(), 0, cv::Point());
+                movingRegions.push_back(imageMultiply(gray, region));
+                contours.push_back(newContours[i]);
+            }
+        }
+
+        cv::drawContours(frame, newContours, -1, cv::Scalar(0,0,255), 1);
+        std::vector<cv::Moments> mu(contours.size() );                                                                                                          
+        for( size_t i = 0; i < contours.size(); i++ ){
+            mu[i] = cv::moments( contours[i], false );
+        }
+        
+        std::vector<cv::Point2f> newMc( contours.size() );                                                                                                         
+        for( size_t i = 0; i < contours.size(); i++ ){ 
+            newMc[i] = cv::Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); 
+        }
 
         //if(measurement.at<float>(0) < 0){
         if(!initialised){
@@ -79,40 +134,48 @@ void Tracking::begin(){
         }
         //cv::drawKeypoints(foreground, newKeyPoints, tracker, CV_RGB(0,255,0), cv::DrawMatchesFlags::DEFAULT);
         std::vector<cv::Mat> newDescriptors;
-        for(int i = 0; i < newKeyPoints.size(); i++){
+        std::vector<int> keyPointCount;
+        std::vector<cv::Point2f> mc;
+        for(int i = 0; i < movingRegions.size(); i++){
             cv::Mat des;
-            std::vector<cv::KeyPoint> k(newKeyPoints.begin() + i, newKeyPoints.begin() + i + 1);
-            extractor.compute(frame, k, des);
-            newDescriptors.push_back(des);
-        }
 
+            std::vector<cv::KeyPoint> kp; 
+            detector.detect(movingRegions[i], kp);
+            extractor.compute(frame, kp, des);
+            if(des.size().width > 0){
+                newDescriptors.push_back(des);
+                keyPointCount.push_back(kp.size());
+                mc.push_back(newMc[i]);
+            }
+        }
         if(newDescriptors.size() > 0 && objects.size() == 0){
             for(int i = 0; i < newDescriptors.size(); i++){
-                cv::Mat des;
-                std::vector<cv::KeyPoint> k(newKeyPoints.begin() + i, newKeyPoints.begin() + i + 1);
-                extractor.compute(frame, k, des);
-                descriptors.push_back(des);
-                MovingObject obj(newKeyPoints[i], newDescriptors[i]);
+                MovingObject obj(mc[i], newDescriptors[i]);
                 objects.push_back(obj);
             }
         }else if(newDescriptors.size() > 0 && objects.size() > 0 ){
             for(int objIndex = 0; objIndex < objects.size(); objIndex++){
                 double bestMatch = minDistance;
+                double score = minScore;
                 int found = -1;
                 for(int desIndex = 0; desIndex < newDescriptors.size(); desIndex++){
                     cv::vector<cv::DMatch> matches;
                     matcher.match(objects[objIndex].descriptor, newDescriptors[desIndex], matches);
-                    if(matches.size() > 0 && matches[0].distance < bestMatch ){
-                        bestMatch = matches[0].distance;
+                    int nm = 0;
+                    for (int matchIndex = 0; matchIndex < matches.size(); matchIndex++){
+                        if(matches[matchIndex].distance < minDistance){
+                            nm++; 
+                        }
+                    }
+                    if(nm*1.0 / keyPointCount[desIndex] > score){
+                        score = nm*1.0 / keyPointCount[desIndex];
                         found = desIndex;
                     }
                 }
                 if( found >= 0){
                     objects[objIndex].descriptor = newDescriptors[found];
-                    objects[objIndex].keyPoint = newKeyPoints[found];
-                    cv::Point newPos = newKeyPoints[found].pt; 
-                    objects[objIndex].process(newPos);
-                    newKeyPoints.erase(newKeyPoints.begin() + found);
+                    objects[objIndex].process(mc[found]);
+                    mc.erase(mc.begin() + found);
                     newDescriptors.erase(newDescriptors.begin() + found);
 
                     //draw new Point
@@ -120,24 +183,22 @@ void Tracking::begin(){
                     drawCircle(tracker, objects[objIndex].getPrediction(), objects[objIndex].predictionColor, 2);
                     drawRectangle(tracker, objects[objIndex].getEstimatedPosition(), objects[objIndex].estimatedColor, 2);
   //                  objects[objIndex].draw(tracker);
-                    objects[objIndex].found++;
                 }else{
-                    objects[objIndex].notFoundCount++;
+                    objects[objIndex].updateWithoutCorrectrion();
                 }
-                if(objects[objIndex].notFoundCount > 0 && objects[objIndex].found == 0){
-                    objects.erase(objects.begin() + objIndex);
-                }else if(objects[objIndex].notFoundCount > 10){
+                
+                if(objects[objIndex].noMeasurement > 50 || objects[objIndex].found == 0){
                     objects.erase(objects.begin() + objIndex);
                 }
+
             }
                 //add new objects
             for(int i = 0; i < newDescriptors.size(); i++){
-                MovingObject obj(newKeyPoints[i], newDescriptors[i]);
+                MovingObject obj(mc[i], newDescriptors[i]);
                 objects.push_back(obj);
             }
         }
 
-debug(objects.size());
         cv::imshow("Video", frame);
         cv::imshow("Tracker", tracker);
 //        cv::imshow("background", background);
