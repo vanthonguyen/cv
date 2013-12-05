@@ -54,33 +54,16 @@ void Tracking::begin(){
         std::cerr << "Problem opening video source" << std::endl;
     }
 
-    cv::SimpleBlobDetector::Params params;                                                                                                                      
-    params.minThreshold = 40;
-    params.maxThreshold = 60;
-    params.thresholdStep = 5;
-    params.minArea = 200; 
-    params.minConvexity = 0.3;
-    params.minInertiaRatio = 0.01;
-    params.maxArea = 8000;
-    params.maxConvexity = 16;
-    params.filterByColor = false;
-    params.filterByCircularity = false;
-   
-    //cv::SimpleBlobDetector blobDetector(params);
-    //blobDetector.create("SimpleBlob");
     std::vector<cv::KeyPoint> newKeyPoints;
     int nf = 0;
-    while((char)cv::waitKey(30) != 'q' && capture.grab()){
+    while((char)cv::waitKey(20) != 'q' && capture.grab()){
         capture.retrieve(frame);
         cv::Mat gray;
         cv::cvtColor(frame, gray, CV_BGR2GRAY);
         if(background.size().width == 0){
             background = gray.clone();
         }
-        //cv::medianBlur(frame, frameBlur, 3);
-        //cv::GaussianBlur(gray, gray, cv::Size(5,5), 0, 0);
-//        backgrounSubtructor.operator ()(frameBlur, foreground);
-        //backgrounSubtructor.getBackgroundImage(background);
+
         int rnd = rand()%sampleRate;
         if(rnd == 0){
             background = backgroundSubtructor.getBackground(gray);
@@ -92,12 +75,10 @@ void Tracking::begin(){
         }
 
         foreground = backgroundSubtructor.subtract(gray, background );
-        //cv::threshold(foreground, foreground, 20, 255,  CV_THRESH_BINARY);
         cv::erode(foreground, foreground, cv::Mat());
         cv::dilate(foreground, foreground, cv::Mat());
         cv::dilate(foreground, foreground, cv::Mat());
         cv::erode(foreground, foreground, cv::Mat());
-        //blobDetector.detect(foreground, newKeyPoints, cv::Mat());
 
 
         cv::imshow("xx", background);
@@ -105,7 +86,7 @@ void Tracking::begin(){
         std::vector<std::vector<cv::Point> > newContours;
         cv::findContours(foreground, newContours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
         std::vector<cv::Mat> movingRegions;
-        //cv::Mat drawing = cv::Mat::zeros(frame.size(), CV_8UC1);
+
         std::vector<std::vector<cv::Point> > contours;
         for(size_t i = 0; i < newContours.size(); i++){
             if(cv::contourArea(newContours[i]) > minContourArea){
@@ -180,8 +161,8 @@ void Tracking::begin(){
 
                     //draw new Point
                     drawCross(tracker, objects[objIndex].getMeasurement(), objects[objIndex].measurementColor, 2);
-                    drawCircle(tracker, objects[objIndex].getPrediction(), objects[objIndex].predictionColor, 2);
-                    drawRectangle(tracker, objects[objIndex].getEstimatedPosition(), objects[objIndex].estimatedColor, 2);
+                    drawCross(tracker, objects[objIndex].getPrediction(), objects[objIndex].predictionColor, 2);
+                    drawCross(tracker, objects[objIndex].getEstimatedPosition(), objects[objIndex].estimatedColor, 2);
   //                  objects[objIndex].draw(tracker);
                 }else{
                     objects[objIndex].updateWithoutCorrectrion();
@@ -201,6 +182,5 @@ void Tracking::begin(){
 
         cv::imshow("Video", frame);
         cv::imshow("Tracker", tracker);
-//        cv::imshow("background", background);
     }
 }

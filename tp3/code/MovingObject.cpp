@@ -28,7 +28,6 @@ MovingObject::MovingObject(cv::Point initialPoint, cv::Mat initialDescriptor):
      * 4 dynamic params: x, y, dx, dy, 2 measurement
      */
     filter.init(4, 2, 0);
-    //filter.transitionMatrix = *(cv::Mat_<float>(2, 2) << 1, 1, 0, 1);
     filter.transitionMatrix = *(cv::Mat_<float>(4, 4) << 1,0,1,0,   0,1,0,1,  0,0,1,0,  0,0,0,1);
     filter.processNoiseCov = *(cv::Mat_<float>(4,4) << 0.1,0,0.1,0,  0,0.1,0,0.1,  0,0,0.1,0,  0,0,0,0.1);
     cv::setIdentity(filter.measurementMatrix);
@@ -36,23 +35,24 @@ MovingObject::MovingObject(cv::Point initialPoint, cv::Mat initialDescriptor):
     cv::setIdentity(filter.measurementNoiseCov, cv::Scalar::all(1e-1));
     cv::setIdentity(filter.errorCovPost, cv::Scalar::all(1));
 
-//    randn(filter.statePost, cv::Scalar::all(0), cv::Scalar::all(0.1));
     filter.statePost = *(cv::Mat_<float>(4, 1) << center.x,center.y,0,0);
     cv::randn( estimated, cv::Scalar::all(0), cv::Scalar::all(0.1) );
-    //int c = rng.uniform(100, 255);
+
+    srand(time(NULL));
     int r = rand()%256;
     int g = rand()%256;
     int b = rand()%256;
     //predictionColor = cv::Scalar(b, g, r);
     //measurementColor = cv::Scalar(b, g, r);
     estimatedColor= cv::Scalar(b, g, r);
+//    predictionColor = cv::Scalar(255, 0, 0);
+//    measurementColor = cv::Scalar(0, 255, 0);
+//    estimatedColor= cv::Scalar(0, 0, 255);
     prevMeasurement.x = -1.0;
     prevMeasurement.y = -1.0;
     measurement(0) = -1.0;
     measurement(1) = -1.0;
 
-//    measurement.at<float>(0) = initialPosition.x;
-//    measurement.at<float>(1) = initialPosition.y;
 }
 
 void MovingObject::process(cv::Point2f measurementPosition){
@@ -72,22 +72,6 @@ void MovingObject::process(cv::Point2f measurementPosition){
     }else{
         updateWithoutCorrectrion();
     }
-    
-    //setMeasurement(measurementPosition);
-    //setEstimated(filter.correct(measurement));
-/*      cv::randn( measurement, cv::Scalar::all(0), cv::Scalar::all(filter.measurementNoiseCov.at<float>(0)));
-    //cv::Mat measurementPos = cv::Mat(4, 1, CV_32F);
-    cv::Mat_<float> measurementPos(4,1);
-    measurementPos(0) = measurementPosition.x;
-    measurementPos(1) = measurementPosition.y;
-    measurementPos(2) = 0;
-    measurementPos(3) = 0;
-
-    measurement += filter.measurementMatrix*measurementPos;
-*/
-//    setEstimated(filter.correct(measurement));
-//    cv::randn( processNoise, cv::Scalar(0), cv::Scalar::all(sqrt(filter.processNoiseCov.at<float>(0, 0))));
-//    estimated = filter.transitionMatrix*estimated + processNoise;
 }
 void MovingObject::updateWithoutCorrectrion(){
     setPrediction(filter.predict());

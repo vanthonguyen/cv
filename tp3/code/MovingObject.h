@@ -12,7 +12,7 @@
  * using keypoints to detect objects
  * and KalmanFilter to tracking objects's velocity and position 
  */
-const int maxVelocity = 1.0;
+const int maxVelocity = 3.0;
 class MovingObject{
     public:
         /**
