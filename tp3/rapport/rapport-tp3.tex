@@ -1,0 +1,284 @@
+\documentclass[french,12pt,a4paper,oneside,notitlepage]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[french]{babel}
+\usepackage{xcolor}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{amsthm}
+\usepackage{fourier}
+\usepackage{hyperref}   % links im text
+\usepackage{enumerate}  % for advanced numbering of lists
+\usepackage{fancyhdr}  
+\usepackage{caption}
+\usepackage{listings}
+%\usepackage{mathtools}
+\usepackage{amsmath}   %arraycolsep
+\usepackage[protrusion=true,expansion=true]{microtype}
+\makeatletter
+\definecolor{bl}{rgb}{0,0.2,0.6}
+\let\LaTeX@startsection\@startsection
+\renewcommand{\@startsection}[6]{\LaTeX@startsection%
+{#1}{#2}{#3}{#4}{#5}{\color{bl}\raggedright #6}}
+\renewcommand{\thesection}{\@arabic\c@section}{\color{bl}}
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {-3.25ex\@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
+
+\DeclareCaptionFont{white}{\color{white}}
+\DeclareCaptionFormat{listing}{%
+  \parbox{\textwidth}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}}
+\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white}
+\lstset{frame=lrb,xleftmargin=\fboxsep,xrightmargin=-\fboxsep}
+
+\lstset{
+ 	language=C++,
+% 	captionpos=b,
+ 	tabsize=3,
+ 	frame=single,
+ 	xleftmargin=\fboxsep,
+ 	xrightmargin=-\fboxsep,
+ 	keywordstyle=\color{blue},
+ 	commentstyle=\color{gray},
+ 	stringstyle=\color{green},
+	extendedchars=true,
+% 	numbers=left,
+ 	numberstyle=\tiny,
+ 	numbersep=5pt,
+ 	breaklines=true,
+ 	showstringspaces=false,
+ 	basicstyle=\footnotesize\ttfamily,
+ 	emph={label},
+ 	inputencoding=utf8,
+ 	extendedchars=true, 	
+ 	  literate=%
+ 	  {é}{{\'{e}}}1
+ 	  {è}{{\`{e}}}1
+ 	  {ê}{{\^{e}}}1
+ 	  {ë}{{\¨{e}}}1
+ 	  {û}{{\^{u}}}1
+ 	  {ù}{{\`{u}}}1
+ 	  {â}{{\^{a}}}1
+ 	  {à}{{\`{a}}}1
+ 	  {î}{{\^{i}}}1
+ 	  {ç}{{\c{c}}}1
+ 	  {Ç}{{\c{C}}}1
+ 	  {É}{{\'{E}}}1
+ 	  {Ê}{{\^{E}}}1
+ 	  {À}{{\`{A}}}1
+ 	  {Â}{{\^{A}}}1
+ 	  {Î}{{\^{I}}}1	
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand\yourName{NGUYEN Van Tho}
+\newcommand\yourKeywords{TP,Vision Par Ordinateur}
+\newcommand\yourNumber{1}
+\newcommand\yourTitle{\Huge Vision par Ordinateur\\ \Large TP 3 : Détection et suivi de 
+mouvement
+}
+
+\hypersetup { 
+  pdfauthor   = {\yourName}, 
+  pdfkeywords = {\yourKeywords}, 
+  pdftitle    = {\yourTitle} 
+}
+
+\hypersetup { 
+  pdfauthor   = {\yourName}, 
+  pdfkeywords = {\yourKeywords}, 
+  pdftitle    = {\yourTitle} 
+}
+
+
+\begin{document}
+%\newcommand{\myparagraph}[1]{\paragraph{#1}\mbox{}\\}
+\author{\yourName}
+\title{\yourTitle}
+\maketitle
+\section{Fonctionnement du programme}
+Ce TP est divisé en deux parties: \textbf{Détection du mouvement} et \textbf{Suivi du 
+mouvement}. Dans cette section je représente le fonctionnement de ces deux parties. 
+\subsection{Détection du mouvement}
+Pour détecter le mouvement dans une vidéo, j'utilise la méthode soustraction de l'image 
+de fond. Donc première étape de cette méthode est de construire l'image de fond. Le 
+diagramme ci-dessous explique la méthode de construire l'image de fond à partir des 
+trames de la vidéo.
+
+\begin{center}
+\includegraphics[width=10cm]{background.jpg}
+\end{center}
+
+Prendre toutes les images pour construire l'image de fond n'est pas une bonne idée en 
+deux raison: 1) Les images de deux trames continus sont très ressembles. 2) La 
+performance va diminuer. Donc, dans mon algorithme, une image est prise avec une 
+possibilité de 1/samplerate. J'ai choisir samplerate égale 10. Autrement dit, on prend 
+une image sur dix pour construire l'image de fond. Ces images sont stockées dans une 
+liste ayant le maximum nombre d'élément égale 50.
+Cette méthode rend le fond assez bon. Cependant, la performance n'est pas très bien. Pour 
+fixer ce problème, l'algorithme est exécuté parallèle (multithread).
+
+Les mouvements sont détecté en soustrayant l'image original par l'image de fond.
+Pour obtenir le résultat qui a moins de bruit et avec des régions plus complète, 
+j'utilise une fois la fonction erode et une fois la fonction dilate sur l'image de 
+résultat.
+\paragraph{Commande pour lancer le programme}
+\begin{lstlisting}
+  ./detector video_file 
+\end{lstlisting}
+
+\subsection{Suivi du mouvement}
+Dans cette partie, j'utilise le résultat de la partie précédente pour suivre les 
+mouvements. Pour suivre plusieurs objets, une liste est utilisées pour stocker ces 
+objets. Pour reconnaître ces objets, j'utilise la méthode surf pour détecter les 
+keypoints. Pour calculer ces keypoints, d'abord, à partir de l'image de front (obtenue 
+par la soustraction de l'image originale par l'image de fond) je crée des masques (image 
+binaire). En suite, les objets sont obtenue en multipliant  l'image originale 
+avec ces masques. Les keypoints sont obtenues par appliquer la méthode Surf sur 
+ces objets. A partir de ces keypoints les descripteurs sont générés. A chaque étape du 
+boucle, les descripteurs des objets de l'image précédente sont comparés aux ceux de 
+l'image actuelle en utilisant la méthode BFMatcher de la bibliothèque OpenCV. La meilleure 
+correspondante est utilisée comme la mesure pour l'étape correction du filtre Kalman. Le 
+score de la correspondance est calculé par cette formule
+\begin{center}
+ $score = \frac{\#  correspondances\ réussies}{\# descripteurs\ de\ nouvelle\_image}$
+\end{center}
+
+Si un nouveau objet qui ne corresponde pas à aucun 
+objet de l'étape précédente, il est considéré comme un nouveau objet et est ajouté au 
+liste des objets suivis. Si un objet n'apparaît pas pendant 30 trames, il est exclu de la 
+liste des objets suivis. Le diagramme ci-dessous explique le processus de mis en 
+correspondance un objet à un liste de nouveaux objets.
+\begin{center}
+\includegraphics[width=10cm]{comparer.jpg}
+\end{center}
+\paragraph{Commande pour lancer le programme}
+\begin{lstlisting}
+  ./tracking video_file 
+\end{lstlisting}
+\subsection{Compiler le programme sous linux}
+\begin{lstlisting}
+  $make 
+  $make tracking 
+\end{lstlisting}
+\clearpage
+\section{Expérimentation et Résultat}
+\subsection{Détection du mouvement}
+Pour expérimenter ce programme, j'utilise plusieurs images dont l'image avec des 
+mouvements horizontaux et des mouvements verticaux. 
+\begin{figure}[ht]
+	\begin{center}$
+		\begin{array}[h]{c}
+		  \includegraphics[width=12.5cm]{screen1-2.png}\\
+		  \includegraphics[width=12.5cm]{screen1-1.png}
+		\end{array}$
+	\end{center}
+	\caption{Extrait de résultat de fichier Meet\_WalkSplit.mpg\\
+	\hspace*{1.7cm} De gauche à droit: image originale, image de font, image de front}
+\end{figure}
+\begin{figure}[ht]
+	\begin{center}$
+		\begin{array}[h]{c}
+		  \includegraphics[width=12.5cm]{screen2-1.png}\\
+		  \includegraphics[width=12.5cm]{screen2-2.png}
+		\end{array}$
+	\end{center}
+	\caption{Extrait de résultat de fichier ShopAssistant2cor.mpg \\
+	\hspace*{1.7cm} De gauche à droit: image originale, image de font, image de front}
+\end{figure}
+
+\clearpage
+\subsection{Suivi du mouvement}
+Dans cette partie j'ai expérimenté le programme avec plusieurs scénarios correspondant 
+aux différents niveaux de difficulté. Pour le premier scénario, j'affiche toutes les 
+trois trajectoires: de prédiction, de mesure et de correction. Cependant, pour une plus 
+claire vue, j'affiche seulement la trajectoire corrigée. Les trajectoires affichées sont 
+capturés à la fin d'expérimentation.
+\subsubsection{Un seul objet en mouvement avec une trajectoire simple}
+\begin{figure}[ht]
+	\begin{center}
+		\includegraphics[width=9.5cm]{suivi1-3c.png}
+	\end{center}
+	\caption{Trajectoires d'un seul objet en mouvement}
+\end{figure}
+\subsubsection{Un seul objet en mouvement avec une trajectoire complexe}
+\begin{figure}[ht]
+	\begin{center}
+		\includegraphics[width=9.5cm]{suivi1c.png}
+	\end{center}
+	\caption{Trajectoire corrigée d'un seul objet en mouvement}
+\end{figure}
+\subsubsection{Deux objets en mouvement sans croisement de trajectoires}
+\begin{figure}[ht]
+	\begin{center}
+		\includegraphics[width=9.5cm]{suivif.png}
+	\end{center}
+	\caption{Trajectoires corrigées de deux objets en mouvement sans croisement}
+\end{figure}
+\subsubsection{Deux objets en mouvement avec croisement de trajectoires}
+\begin{figure}[ht]
+	\begin{center}$
+		\begin{array}[h]{c}
+		  \includegraphics[width=9.5cm]{suivi2sanscroise.png}\\
+		  \includegraphics[width=9.5cm]{suivi1.png}\\
+		\end{array}$
+	\end{center}
+	\caption{Trajectoires corrigées de deux objets en mouvement avec croisement}
+\end{figure}
+\subsubsection{Deux ou plusieurs objets en mouvement avec occlusions}
+\begin{figure}[ht]
+	\begin{center}$
+		\begin{array}[h]{c}
+		  \includegraphics[width=9.5cm]{suivin.png}
+		\end{array}$
+	\end{center}
+	\caption{Trajectoires corrigées de deux objets en mouvement avec occlusions}
+\end{figure}
+
+\clearpage
+\section{Réponses aux questions}
+\subsection{Détection du mouvement}
+En voyant les figure 1 et 2, on constate que la méthode de détection du mouvement rende 
+des bons résultats quand les objets ne déplacent pas verticalement. Pourtant, quand la 
+vidéo contient des mouvements verticaux, les résultats sont moins bons. Puisque on 
+détecte l'image de fond en trouvant les pixels médians d'une série d'images, quand les 
+objets déplacent verticalement, ils sont presque immobiles. Cependant, cette algorithme 
+peut mettre à jour l'image de fond. Donc, le résultat est plus en plus bon comme on peut 
+voire la deuxième image de figure 2 et beaucoup meilleure que la première. 
+\subsection{Suivi du mouvement}
+Nous constatons que l'algorithme rende de résultats très bien dans les cas il y a un seul 
+objet en mouvement ou plusieurs objets en mouvement sans croisement (Figure 3, figure 
+4 et figure 5). En voyant la figure 4, on peut voire très bien une caractéristique du 
+filtre Kalman: Le résultat est meilleur de plus en plus. En fait, au début, la 
+trajectoire n'est pas glisse (en gauche et en bas).
+
+Pour les cas dont plusieurs objets en mouvements avec croisement, le programme ne rend 
+pas toujours de bons résultats. Voir la figure 6, le premier cas, le programme marche 
+bien. Pourtant, le deuxième cas les trajectoires sont un peu bizarre quand les objets 
+se croisent. Mais en tous cas le programme peut correctement reconnaître les objets. On 
+peut voire la même couleur pour chaque objet.
+
+Dans le plus difficile cas (Figure 7) le programme rend un résultat très mal. Avec 
+beaucoup de croisement et de occlusion, le programme ne peut pas bien détecter les 
+objets. Donc, il passe des fautes mesures à la fonction Kalman.correct. C'est pourquoi on 
+voit des trajectoires bizarres et incohérentes. De plus, quand il y a plusieurs personnes 
+en mouvements et près proche, le programme peut mal détecter comme une personne. 
+\section{Conclusion et Discussion}
+Dans ce TP j'ai implémenté un algorithme pour détecter les mouvements dans une vidéo. 
+J'ai aussi implémenté un programme pour suivre les objets dans une vidéo. Le programme 
+peut suivre plusieurs objets.
+
+Pour évaluer ces programmes, je les ai expérimenté avec des vidéos différentes. En 
+général, les programmes rendent des résultats assez bons. Cependant, dans les cas avec 
+beaucoup de chaos, le programme ne marche pas très bien.
+
+Pendant implémentation et expérimentation de programme pour suivre des mouvements j'ai 
+constaté que la tâche la plus difficile est de reconnaître des objets. J'ai essayé 
+plusieurs méthodes, mais je ne peux pas obtenir des résultats parfaits même avec HOG et 
+SVM (le résultat est bon mais le programme marche très lentement). 
+
+\end{document}
