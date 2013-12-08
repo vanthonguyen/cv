@@ -15,12 +15,26 @@
 #define MATCHING_H
 
 #include <vector>
+#include <iostream>
+#include <fstream>
 
 #include <opencv2/opencv.hpp>
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/nonfree/features2d.hpp"
 
+//distance 
+#define RANSAC_PARAM1 3.0
+//confidence propability
+#define RANSAC_PARAM2 0.99
+
+const std::string OUTPUT_DIR = "../output/";
+const std::string MATCH_DRAW = "2images";
+const std::string FINAL_RESULT = "final";
+const std::string RANSAC = "ransac";
+const std::string HEURISTIC = "heuristic";
+const std::string IMAGE_EXTENSION = ".jpg";
+const std::string TEXT_OUTPUT = "text";
 /* *
  * Using SIFT descriptor for matching 2 images
  * */
@@ -30,7 +44,9 @@ class Matching{
          * Input: 2 images
          * */
         Matching(char *img1, char *img2, double thr);
+        ~Matching();
         void match();
+        void heuristicMatch();
     private:
         //private methods
         void getDescriptors();
@@ -69,6 +85,14 @@ class Matching{
 
         //3d stuff
         cv::Mat fundamentalMatrix;
+
+        //color to draw matches 
+        cv::Scalar color = cv::Scalar(123, 12, 111);
+
+        std::string imageIdentify;
+
+        std::ofstream writeRansac;
+        std::ofstream writeHeuristic;
 };
 
 #endif
