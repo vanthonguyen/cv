@@ -29,7 +29,7 @@ class Matching{
         /* *
          * Input: 2 images
          * */
-        Matching(char *img1, char *img2);
+        Matching(char *img1, char *img2, double thr);
         void match();
     private:
         //private methods
@@ -39,7 +39,12 @@ class Matching{
         void combineImage();
 
         cv::Point2f transformPoint(cv::Point2f p2);
+
+        cv::vector<cv::DMatch> getSymetryMatches(const cv::vector<cv::DMatch> &matches1, const cv::vector<cv::DMatch> &matches2);
+
         //private variables
+        double threshold;
+
         cv::Mat image1;
         cv::Mat image2;
 
@@ -57,10 +62,13 @@ class Matching{
 
         //Sift feature detector and extractor
         cv::SiftDescriptorExtractor descriptorExtractor;
-        cv::SiftFeatureDetector     featureDetector;
+        cv::SiftFeatureDetector     featureDetector;// = cv::SiftFeatureDetector(4000);
         
         //matcher
         cv::FlannBasedMatcher matcher;
+
+        //3d stuff
+        cv::Mat fundamentalMatrix;
 };
 
 #endif
